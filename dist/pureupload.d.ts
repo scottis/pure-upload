@@ -151,7 +151,6 @@ declare module pu {
         private onClick;
         private addFilesFromItems;
         private processDirectory;
-        private handleFiles;
         private isFileSizeValid;
         private isFileTypeInvalid;
         private stopEventPropagation;

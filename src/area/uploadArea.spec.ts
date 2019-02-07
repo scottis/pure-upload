@@ -40,4 +40,62 @@ describe("uploadArea", () => {
       expect(uploadArea["fileList"]).toEqual([file2, file3]);
     });
   });
+
+  describe("addFilesFromItems", () => {
+    let directories: any[];
+    let files: any[];
+    let uploadArea: UploadArea;
+
+    beforeEach(() => {
+      directories = [];
+      files = [];
+
+      for (let i = 0; i < 2; ++i) {
+        directories.push({
+          isDirectory: true,
+          isFile: false,
+          createReader() { return { readEntries(callback: Function) { callback(files); } }; },
+          webkitGetAsEntry() { return this; }
+        });
+      }
+
+      for (let i = 0; i < 5; ++i) {
+        files.push({
+          isDirectory: false,
+          isFile: true,
+          name: i.toString(),
+          file(callback: Function) { callback(this); },
+          getAsFile() { return this; },
+          webkitGetAsEntry() { return this; }
+        })
+      }
+
+      uploadArea = new UploadArea(
+        document.createElement("div"),
+        { manualStart: true, method: "", url: "" },
+        jasmine.createSpyObj("uploader", { queue: { callbacks: {} } })
+      );
+    });
+
+    it("adds files from file items", () => {
+      uploadArea["addFilesFromItems"](files);
+      expect(uploadArea["fileList"]).toEqual(files);
+    });
+
+    it("adds files from directory items", () => {
+      uploadArea["addFilesFromItems"](directories);
+      expect(uploadArea["fileList"]).toEqual(files.concat(files));
+    });
+
+    it("adds files from directory items and file items", () => {
+      uploadArea["addFilesFromItems"](directories.concat([files[0]]));
+      expect(uploadArea["fileList"]).toEqual(files.concat(files).concat([files[0]]));
+    });
+
+    it("adds files from items without webkitGetAsEntry", () => {
+      for (let i = 0; i < files[i]; ++i) { delete files[i].webkitGetAsEntry; }
+      uploadArea["addFilesFromItems"](files);
+      expect(uploadArea["fileList"]).toEqual(files);
+    });
+  });
 });

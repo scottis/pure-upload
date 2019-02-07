@@ -302,7 +302,7 @@ class UploadArea {
           this.addFilesFromItems(items);
         }
       } else {
-        this.handleFiles(files);
+        this.selectFiles(files);
       }
     }
   }
@@ -331,20 +331,31 @@ class UploadArea {
     items: FileList | File[] | DataTransferItemList | DataTransferItem[]
   ): void {
     let entry: IFileExt;
-    for (let i = 0; i < items.length; i++) {
+    let addedItemsCount = 0;
+    let addedFiles: File[] = [];
+    let itemsCount = items.length;
+    for (let i = 0; i < itemsCount; i++) {
       let item: IFileExt = <IFileExt>items[i];
       if (
         item.webkitGetAsEntry &&
         (entry = <IFileExt>item.webkitGetAsEntry())
       ) {
         if (entry.isFile) {
-          this.selectFiles([item.getAsFile()]);
+          ++addedItemsCount;
+          addedFiles.push(item.getAsFile());
+          if (addedItemsCount === itemsCount) this.selectFiles(addedFiles);
         } else if (entry.isDirectory) {
-          this.processDirectory(entry, entry.name);
+          this.processDirectory(entry, entry.name, (files) => {
+            ++addedItemsCount;
+            addedFiles.push.apply(addedFiles, files);
+            if (addedItemsCount === itemsCount) this.selectFiles(addedFiles);
+          });
         }
       } else if (item.getAsFile) {
         if (!item.kind || item.kind === "file") {
-          this.selectFiles([item.getAsFile()]);
+          ++addedItemsCount;
+          addedFiles.push(item.getAsFile());
+          if (addedItemsCount === itemsCount) this.selectFiles(addedFiles);
         }
       }
     }
@@ -352,9 +363,12 @@ class UploadArea {
 
   private processDirectory(
     directory: { createReader: Function },
-    path: string
+    path: string,
+    callback: (files: File[]) => void
   ): void {
     let dirReader = directory.createReader();
+    let processedEntriesCount = 0;
+    let processedFiles: File[] = [];
     let self = this;
     let entryReader = (entries: (IFileExt & { createReader: Function })[]) => {
       for (let i = 0; i < entries.length; i++) {
@@ -365,10 +379,16 @@ class UploadArea {
               return;
             }
             file.fullPath = "" + path + "/" + file.name;
-            self.selectFiles([file]);
+            processedFiles.push(file);
+            ++processedEntriesCount;
+            if (processedEntriesCount === entries.length) callback(processedFiles);
           });
         } else if (entry.isDirectory) {
-          self.processDirectory(entry, "" + path + "/" + entry.name);
+          self.processDirectory(entry, "" + path + "/" + entry.name, (files) => {
+            ++processedEntriesCount;
+            processedFiles.push.apply(processedFiles, files);
+            if (processedEntriesCount === entries.length) callback(processedFiles);
+          });
         }
       }
     };
@@ -379,12 +399,6 @@ class UploadArea {
           : void 0
         : void 0;
     });
-  }
-
-  private handleFiles(files: FileList | File[]): void {
-    for (let i = 0; i < files.length; i++) {
-      this.selectFiles([files[i]]);
-    }
   }
 
   private isFileSizeValid(file: File): boolean {

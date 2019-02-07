@@ -388,7 +388,7 @@ var pu;
                     }
                 }
                 else {
-                    this.handleFiles(files);
+                    this.selectFiles(files);
                 }
             }
         };
@@ -411,27 +411,44 @@ var pu;
             }
         };
         UploadArea.prototype.addFilesFromItems = function (items) {
+            var _this = this;
             var entry;
-            for (var i = 0; i < items.length; i++) {
+            var addedItemsCount = 0;
+            var addedFiles = [];
+            var itemsCount = items.length;
+            for (var i = 0; i < itemsCount; i++) {
                 var item = items[i];
                 if (item.webkitGetAsEntry &&
                     (entry = item.webkitGetAsEntry())) {
                     if (entry.isFile) {
-                        this.selectFiles([item.getAsFile()]);
+                        ++addedItemsCount;
+                        addedFiles.push(item.getAsFile());
+                        if (addedItemsCount === itemsCount)
+                            this.selectFiles(addedFiles);
                     }
                     else if (entry.isDirectory) {
-                        this.processDirectory(entry, entry.name);
+                        this.processDirectory(entry, entry.name, function (files) {
+                            ++addedItemsCount;
+                            addedFiles.push.apply(addedFiles, files);
+                            if (addedItemsCount === itemsCount)
+                                _this.selectFiles(addedFiles);
+                        });
                     }
                 }
                 else if (item.getAsFile) {
                     if (!item.kind || item.kind === "file") {
-                        this.selectFiles([item.getAsFile()]);
+                        ++addedItemsCount;
+                        addedFiles.push(item.getAsFile());
+                        if (addedItemsCount === itemsCount)
+                            this.selectFiles(addedFiles);
                     }
                 }
             }
         };
-        UploadArea.prototype.processDirectory = function (directory, path) {
+        UploadArea.prototype.processDirectory = function (directory, path, callback) {
             var dirReader = directory.createReader();
+            var processedEntriesCount = 0;
+            var processedFiles = [];
             var self = this;
             var entryReader = function (entries) {
                 for (var i = 0; i < entries.length; i++) {
@@ -442,11 +459,19 @@ var pu;
                                 return;
                             }
                             file.fullPath = "" + path + "/" + file.name;
-                            self.selectFiles([file]);
+                            processedFiles.push(file);
+                            ++processedEntriesCount;
+                            if (processedEntriesCount === entries.length)
+                                callback(processedFiles);
                         });
                     }
                     else if (entry.isDirectory) {
-                        self.processDirectory(entry, "" + path + "/" + entry.name);
+                        self.processDirectory(entry, "" + path + "/" + entry.name, function (files) {
+                            ++processedEntriesCount;
+                            processedFiles.push.apply(processedFiles, files);
+                            if (processedEntriesCount === entries.length)
+                                callback(processedFiles);
+                        });
                     }
                 }
             };
@@ -457,11 +482,6 @@ var pu;
                         : void 0
                     : void 0;
             });
-        };
-        UploadArea.prototype.handleFiles = function (files) {
-            for (var i = 0; i < files.length; i++) {
-                this.selectFiles([files[i]]);
-            }
         };
         UploadArea.prototype.isFileSizeValid = function (file) {
             var maxFileSize = this.options.maxFileSize * 1024 * 1024; // max file size in bytes
